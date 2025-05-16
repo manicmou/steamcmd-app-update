@@ -80,7 +80,7 @@ if (FAMILY_API_KEY && LENDER_IDS.length > 0) {
 
   const fetchSharedApps = (lenderId) =>
     new Promise((resolve, reject) => {
-      const url = `https://api.steamapi.io/IFamilyGroupsService/GetSharedLibraryApps/v1/?steamid=${STEAM_PROFILE_ID}&lending_steamid=${lenderId}`;
+      const url = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?key=${STEAM_API_KEY}&steamid=${STEAM_PROFILE_ID}`;
       const options = {
         headers: {
           Authorization: `Key ${FAMILY_API_KEY}`,
