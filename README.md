@@ -25,6 +25,13 @@ export FORCE_VALIDATE=
 
 # Output file (optional, defaults to stdout)
 export OUTPUT_FILE=
+
+# FAMILY SHARING
+# ID for your steam family. Can be obtained through https://steamapi.xpaw.me/#IFamilyGroupsService/GetFamilyGroupForUser
+export STEAM_FAMILY_ID=
+
+# Steam API token. More difficult to get, and are only temporarily useful. I got mine through a chrome extension.
+export STEAM_API_TOKEN=
 ```
 
 # Limitations
