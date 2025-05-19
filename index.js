@@ -68,63 +68,32 @@ steam
 
 // === Fetch shared games from family lenders using xPaw API ===
 
-const FAMILY_API_KEY = process.env.STEAMAPI_IO_KEY;
-const LENDER_IDS = (process.env.STEAM_FAMILY_LIBRARY_ACCOUNT_IDS || "")
-  .split(",")
-  .map((id) => id.trim())
-  .filter(Boolean);
+const sharedGamesUrl = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?key=${STEAM_API_KEY}&steamid=${STEAM_PROFILE_ID}`;
 
-if (FAMILY_API_KEY && LENDER_IDS.length > 0) {
-  const stream = getOutputStream();
-  const collectedApps = new Map();
-
-  const fetchSharedApps = (lenderId) =>
-    new Promise((resolve, reject) => {
-      const url = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?key=${STEAM_API_KEY}&steamid=${STEAM_PROFILE_ID}`;
-      const options = {
-        headers: {
-          Authorization: `Key ${FAMILY_API_KEY}`,
-        },
-      };
-
-      https
-        .get(url, options, (res) => {
-          let data = "";
-          res.on("data", (chunk) => (data += chunk));
-          res.on("end", () => {
-            try {
-              const json = JSON.parse(data);
-              if (json?.response?.shared_apps) {
-                for (const app of json.response.shared_apps) {
-                  collectedApps.set(app.appid, app);
-                }
-              }
-              resolve();
-            } catch (e) {
-              reject(e);
-            }
-          });
-        })
-        .on("error", reject);
-    });
-
-  Promise.all(LENDER_IDS.map(fetchSharedApps))
-    .then(() => {
-      const sortedApps = [...collectedApps.values()].sort(
-        (a, b) => a.appid - b.appid
-      );
-
-      sortedApps.forEach((app) => {
-        if (!shouldSkip(app.appid, app.name)) {
-          stream.write(
-            `// [SHARED] https://store.steampowered.com/app/${app.appid}\n`
-          );
-          stream.write(`app_update ${app.appid}${validateFlag}\n`);
-        }
+fetch(sharedGamesUrl, {
+  headers: {
+    Authorization: `Key ${STEAM_API_KEY}`,
+  },
+})
+  .then((res) => {
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return res.json();
+  })
+  .then((data) => {
+    const apps = data?.response?.apps || [];
+    const stream = getOutputStream();
+    apps
+      .filter((app) => !shouldSkip(app.appid, app.name))
+      .sort((a, b) => a.appid - b.appid)
+      .forEach((app) => {
+        stream.write(
+          `// Shared - https://store.steampowered.com/app/${app.appid}\n`
+        );
+        stream.write(`app_update ${app.appid}${validateFlag}\n`);
       });
-      stream.end();
-    })
-    .catch((err) => {
-      console.error("Error fetching shared apps:", err);
-    });
-}
+    stream.end();
+  })
+  .catch((err) => {
+    console.error("Failed to fetch shared games:", err);
+    process.exit(1);
+  });

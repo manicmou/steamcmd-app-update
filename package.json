@@ -1,12 +1,11 @@
 {
   "dependencies": {
-    "steamapi": "^2.1.2"
+    "steamapi": "^2.5.0"
   },
   "name": "steamcmd-app-update",
   "description": "Outputs one `app_update <app-id> [-validate]` line per game in your Steam library.",
   "version": "1.0.0",
   "bin": "./index.js",
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
