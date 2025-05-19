@@ -46,10 +46,23 @@ function getOutputStream() {
 
 const validateFlag = !!process.env.FORCE_VALIDATE ? " -validate" : "";
 
+// Shared stream + completion counter
+const stream = getOutputStream();
+let completedSections = 0;
+
+function markDone() {
+  completedSections++;
+  if (completedSections === 2) {
+    if (stream !== process.stdout) {
+      stream.end();
+    }
+  }
+}
+
+// === Fetch owned games ===
 steam
   .getUserOwnedGames(STEAM_PROFILE_ID)
   .then((games) => {
-    const stream = getOutputStream();
     games
       .filter((game) => !shouldSkip(game.appID, game.name))
       .sort((a, b) => a.appID - b.appID)
@@ -59,7 +72,7 @@ steam
         );
         stream.write(`app_update ${game.appID}${validateFlag}\n`);
       });
-    stream.end();
+    markDone();
   })
   .catch((err) => {
     console.error(err);
@@ -69,14 +82,15 @@ steam
 // === Fetch shared games from family lenders using xPaw API ===
 const STEAM_API_TOKEN = process.env.STEAM_API_TOKEN;
 const STEAM_FAMILY_ID = process.env.STEAM_FAMILY_ID;
-if (!STEAM_API_TOKEN) {
-  console.error("The STEAM_API_TOKEN environment variable is required for updating shared library apps.");
-} else if (!STEAM_FAMILY_ID) {
-  console.error("The STEAM_FAMILY_ID environment variable is required for updating shared library apps.");
+
+if (!STEAM_API_TOKEN || !STEAM_FAMILY_ID) {
+  if (!STEAM_API_TOKEN)
+    console.error("The STEAM_API_TOKEN environment variable is required for updating shared library apps.");
+  if (!STEAM_FAMILY_ID)
+    console.error("The STEAM_FAMILY_ID environment variable is required for updating shared library apps.");
+  markDone(); // Still mark as done even if skipping this section
 } else {
-  const sharedGamesUrl = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?key=${STEAM_API_TOKEN}&family_groupid=${STEAM_FAMILY_ID}&steamid=${STEAM_PROFILE_ID}`;
-  const stream = getOutputStream();
-  stream.write(`${sharedGamesUrl}\n`);
+  const sharedGamesUrl = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?access_token=${STEAM_API_TOKEN}&family_groupid=${STEAM_FAMILY_ID}&steamid=${STEAM_PROFILE_ID}`;
   fetch(sharedGamesUrl, {
     headers: {
       Authorization: `Key ${STEAM_API_KEY}`,
@@ -88,20 +102,19 @@ if (!STEAM_API_TOKEN) {
     })
     .then((data) => {
       const apps = data?.response?.apps || [];
-      const stream = getOutputStream();
       apps
         .filter((app) => !shouldSkip(app.appid, app.name))
         .sort((a, b) => a.appid - b.appid)
         .forEach((app) => {
           stream.write(
-            `// Shared - https://store.steampowered.com/app/${app.appid}\n`
+            `// ${app.name} - https://store.steampowered.com/app/${app.appid}\n`
           );
           stream.write(`app_update ${app.appid}${validateFlag}\n`);
         });
-      stream.end();
+      markDone();
     })
     .catch((err) => {
       console.error("Failed to fetch shared games:", err);
-      process.exit(1);
-    })
+      markDone();
+    });
 }
