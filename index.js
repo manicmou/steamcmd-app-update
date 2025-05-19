@@ -67,33 +67,41 @@ steam
   });
 
 // === Fetch shared games from family lenders using xPaw API ===
-
-const sharedGamesUrl = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?key=${STEAM_API_KEY}&steamid=${STEAM_PROFILE_ID}`;
-
-fetch(sharedGamesUrl, {
-  headers: {
-    Authorization: `Key ${STEAM_API_KEY}`,
-  },
-})
-  .then((res) => {
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    return res.json();
+const STEAM_API_TOKEN = process.env.STEAM_API_TOKEN;
+const STEAM_FAMILY_ID = process.env.STEAM_FAMILY_ID;
+if (!STEAM_API_TOKEN) {
+  console.error("The STEAM_API_TOKEN environment variable is required for updating shared library apps.");
+} else if (!STEAM_FAMILY_ID) {
+  console.error("The STEAM_FAMILY_ID environment variable is required for updating shared library apps.");
+} else {
+  const sharedGamesUrl = `https://api.steampowered.com/IFamilyGroupsService/GetSharedLibraryApps/v1/?key=${STEAM_API_TOKEN}&family_groupid=${STEAM_FAMILY_ID}&steamid=${STEAM_PROFILE_ID}`;
+  const stream = getOutputStream();
+  stream.write(`${sharedGamesUrl}\n`);
+  fetch(sharedGamesUrl, {
+    headers: {
+      Authorization: `Key ${STEAM_API_KEY}`,
+    },
   })
-  .then((data) => {
-    const apps = data?.response?.apps || [];
-    const stream = getOutputStream();
-    apps
-      .filter((app) => !shouldSkip(app.appid, app.name))
-      .sort((a, b) => a.appid - b.appid)
-      .forEach((app) => {
-        stream.write(
-          `// Shared - https://store.steampowered.com/app/${app.appid}\n`
-        );
-        stream.write(`app_update ${app.appid}${validateFlag}\n`);
-      });
-    stream.end();
-  })
-  .catch((err) => {
-    console.error("Failed to fetch shared games:", err);
-    process.exit(1);
-  });
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return res.json();
+    })
+    .then((data) => {
+      const apps = data?.response?.apps || [];
+      const stream = getOutputStream();
+      apps
+        .filter((app) => !shouldSkip(app.appid, app.name))
+        .sort((a, b) => a.appid - b.appid)
+        .forEach((app) => {
+          stream.write(
+            `// Shared - https://store.steampowered.com/app/${app.appid}\n`
+          );
+          stream.write(`app_update ${app.appid}${validateFlag}\n`);
+        });
+      stream.end();
+    })
+    .catch((err) => {
+      console.error("Failed to fetch shared games:", err);
+      process.exit(1);
+    })
+}
